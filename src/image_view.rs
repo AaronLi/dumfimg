@@ -2,7 +2,7 @@ use std::cmp::min;
 use std::time::SystemTime;
 use cursive::{Printer, Vec2, View, With};
 use cursive::event::{Event, EventResult, Key, MouseButton, MouseEvent};
-use cursive::theme::{Color, ColorStyle, ColorType};
+use cursive::theme::{BaseColor, Color, ColorStyle, ColorType};
 use cursive::utils::span::SpannedStr;
 use image::imageops::{crop, crop_imm, FilterType, resize};
 use image::{RgbImage};
@@ -13,19 +13,18 @@ pub struct ImageView {
     scaled_image: Option<RgbImage>,
     relayout: bool,
     mode: ImageViewMode,
-    filter_mode: FilterType,
-    cursor: Vec2
+    filter_mode: FilterType
 }
 
 enum ImageViewMode {
     MOVE,
     ZOOM,
-    CURSOR
+    CURSOR{position: Vec2}
 }
 
 impl View for ImageView {
-
     fn draw(&self, printer: &Printer) {
+        let mut cursor_color = None;
         match &self.scaled_image {
             None => {
                 printer.print((printer.output_size.x/2, printer.output_size.y/2), "Error")
@@ -44,14 +43,28 @@ impl View for ImageView {
                             color = pixel;
                             start_pos = column;
                         }
+
+                        if let ImageViewMode::CURSOR{position} = self.mode{
+                            if position.x == column && position.y == row {
+                                cursor_color = Some(pixel.clone());
+                            }
+                        }
                     }
                     printer.with_color(ColorStyle::front(ColorType::Color(Color::Rgb(color[0], color[1], color[2]))), |printer|{printer.print((start_pos, row), &"█".repeat(amount))});
                 }
             }
         }
         match self.mode {
-            ImageViewMode::CURSOR => {
+            ImageViewMode::CURSOR{ position } => {
 
+                printer.with_color(ColorStyle::new(
+                    ColorType::Color(Color::Light(BaseColor::Red)),
+                    ColorType::Color(Color::Light(BaseColor::Black))
+                ), |p|{
+                    p.print(position, "X");
+                    let color = cursor_color.unwrap();
+                    p.print((position.x + 1, position.y + 1), &format!("({}, {}, {})", color[0], color[1], color[2]));
+                });
             }
             _ => {}
         }
@@ -62,7 +75,7 @@ impl View for ImageView {
             ImageViewMode::ZOOM => {
                 "ZOOM"
             }
-            ImageViewMode::CURSOR => {
+            ImageViewMode::CURSOR{..} => {
                 "CURSOR"
             }
         };
@@ -107,7 +120,7 @@ impl View for ImageView {
                         EventResult::Consumed(None)
                     },
                     Key::Up => {
-                        match self.mode {
+                        match &mut self.mode {
                             ImageViewMode::MOVE => {
                                 let (_, height) = self.view_size();
                                 let move_amount = height * 0.01f32;
@@ -121,11 +134,14 @@ impl View for ImageView {
                                 self.zoom(0.1f32);
                                 EventResult::Consumed(None)
                             }
-                            ImageViewMode::CURSOR => {EventResult::Ignored}
+                            ImageViewMode::CURSOR{position, ..} => {
+                                position.y -= 1;
+                                EventResult::Consumed(None)
+                            }
                         }
                     },
                     Key::Down => {
-                        match self.mode {
+                        match &mut self.mode {
                             ImageViewMode::MOVE => {
                                 let (_, height) = self.view_size();
                                 let move_amount = height * 0.01f32;
@@ -139,11 +155,14 @@ impl View for ImageView {
                                 self.zoom(-0.1f32);
                                 EventResult::Consumed(None)
                             }
-                            ImageViewMode::CURSOR => {EventResult::Ignored}
+                            ImageViewMode::CURSOR{position, ..} => {
+                                position.y += 1;
+                                EventResult::Consumed(None)
+                            }
                         }
                     },
                     Key::Left => {
-                        match self.mode {
+                        match &mut self.mode {
                             ImageViewMode::MOVE => {
                                 let (width, _) = self.view_size();
                                 let move_amount = width * 0.02f32;
@@ -153,11 +172,15 @@ impl View for ImageView {
                                 }
                                 EventResult::Consumed(None)
                             },
+                            ImageViewMode::CURSOR{position, ..} => {
+                                position.x -= 1;
+                                EventResult::Consumed(None)
+                            },
                             _ => EventResult::Ignored
                         }
                     },
                     Key::Right => {
-                        match self.mode {
+                        match &mut self.mode {
                             ImageViewMode::MOVE => {
                                 let (width, _) = self.view_size();
                                 let move_amount = width * 0.02f32;
@@ -165,6 +188,10 @@ impl View for ImageView {
                                     self.view[0][0] += move_amount;
                                     self.view[0][1] += move_amount;
                                 }
+                                EventResult::Consumed(None)
+                            },
+                            ImageViewMode::CURSOR{position, ..} => {
+                                position.x += 1;
                                 EventResult::Consumed(None)
                             },
                             _ => EventResult::Ignored
@@ -184,9 +211,12 @@ impl View for ImageView {
                         EventResult::Consumed(None)
                     },
                     'c' => {
-                        self.mode = ImageViewMode::CURSOR;
                         let image_dimensions = self.scaled_image.as_ref().unwrap().dimensions();
-                        self.cursor = Vec2::new(image_dimensions.0 as usize / 2, image_dimensions.1 as usize / 2);
+
+                        self.mode = ImageViewMode::CURSOR{
+                            position: Vec2::new(image_dimensions.0 as usize / 2, image_dimensions.1 as usize / 2)
+                        };
+
                         EventResult::Consumed(None)
                     }
                     _ => EventResult::Ignored
@@ -206,7 +236,6 @@ impl ImageView {
             relayout: false,
             mode: ImageViewMode::MOVE,
             filter_mode: FilterType::Nearest,
-            cursor: Vec2::new(0, 0)
         }
     }
 
