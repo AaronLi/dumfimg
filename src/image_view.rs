@@ -30,12 +30,13 @@ impl View for ImageView {
                 printer.print((printer.output_size.x/2, printer.output_size.y/2), "Error")
             }
             Some(im) => {
+                let draw_start_time = SystemTime::now();
                 for (row, row_pixels) in im.rows().enumerate() {
                     let mut color = [0, 0, 0];
                     let mut amount = 0;
                     let mut start_pos = 0;
                     for (column, pixel) in row_pixels.map(|c|c.0).enumerate() {
-                        if pixel == color {
+                        if ImageView::color_distance(&pixel, &color) < 5 {
                             amount += 1;
                         }else{
                             printer.with_color(ColorStyle::front(ColorType::Color(Color::Rgb(color[0], color[1], color[2]))), |printer|{printer.print((start_pos, row), &"█".repeat(amount))});
@@ -52,6 +53,7 @@ impl View for ImageView {
                     }
                     printer.with_color(ColorStyle::front(ColorType::Color(Color::Rgb(color[0], color[1], color[2]))), |printer|{printer.print((start_pos, row), &"█".repeat(amount))});
                 }
+                printer.print((0, 0), &format!("{}ms", draw_start_time.elapsed().unwrap().as_secs_f32()*1000f32))
             }
         }
         match self.mode {
@@ -253,4 +255,9 @@ impl ImageView {
             self.relayout = true;
         }
     }
+
+    fn color_distance(c1: &[u8], c2: &[u8]) -> u8 {
+        c1[0].abs_diff(c2[0]).checked_add(c1[1].abs_diff(c2[1])).unwrap_or(255).checked_add((c1[2].abs_diff(c2[2]))).unwrap_or(255)
+    }
+
 }
