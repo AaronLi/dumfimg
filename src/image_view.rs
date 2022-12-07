@@ -36,9 +36,9 @@ impl View for ImageView {
                         return;
                     }
                 }
-                let draw_start_time = SystemTime::now();
                 let left_padding = printer.output_size.x.checked_sub(im.width() as usize).unwrap_or(0)/2;
                 let top_padding = printer.output_size.y.checked_sub(im.height() as usize).unwrap_or(0)/2;
+                let draw_start_time = SystemTime::now();
                 for (row, row_pixels) in im.rows().enumerate() {
                     let mut color = [0, 0, 0];
                     let mut amount = 0;
@@ -61,22 +61,23 @@ impl View for ImageView {
                     }
                     printer.with_color(ColorStyle::front(ColorType::Color(Color::Rgb(color[0], color[1], color[2]))), |printer|{printer.print((start_pos + left_padding, row + top_padding), &"█".repeat(amount))});
                 }
-                printer.print((0, 0), &format!("{}ms", draw_start_time.elapsed().unwrap().as_secs_f32()*1000f32))
-            }
-        }
-        match self.mode {
-            ImageViewMode::CURSOR{ position } => {
+                printer.print((0, 0), &format!("{}ms", draw_start_time.elapsed().unwrap().as_secs_f32()*1000f32));
 
-                printer.with_color(ColorStyle::new(
-                    ColorType::Color(Color::Light(BaseColor::Red)),
-                    ColorType::Color(Color::Light(BaseColor::Black))
-                ), |p|{
-                    p.print(position, "X");
-                    let color = cursor_color.unwrap();
-                    p.print((position.x + 1, position.y + 1), &format!("({}, {}, {})", color[0], color[1], color[2]));
-                });
+                match self.mode {
+                    ImageViewMode::CURSOR{ position } => {
+
+                        printer.with_color(ColorStyle::new(
+                            ColorType::Color(Color::Light(BaseColor::Red)),
+                            ColorType::Color(Color::Light(BaseColor::Black))
+                        ), |p|{
+                            p.print((position.x + left_padding, position.y + top_padding), "X");
+                            let color = cursor_color.unwrap();
+                            p.print((position.x + 1 + left_padding, position.y + 1 + top_padding), &format!("({}, {}, {})", color[0], color[1], color[2]));
+                        });
+                    }
+                    _ => {}
+                }
             }
-            _ => {}
         }
         let mode_label = match self.mode {
             ImageViewMode::MOVE => {
@@ -90,7 +91,7 @@ impl View for ImageView {
             }
         };
         let status_text = format!("{:8} {:}%", mode_label, (100f32 / self.view_size().0).round() as usize);
-        printer.print((printer.output_size.x - 1 - status_text.len(), printer.output_size.y-1), &status_text);
+        printer.print((printer.output_size.x - status_text.len(), printer.output_size.y-1), &status_text);
     }
 
     fn layout(&mut self, size: Vec2) {
@@ -235,8 +236,10 @@ impl View for ImageView {
                         EventResult::Consumed(None)
                     },
                     'c' => {
+                        if matches!(self.mode, ImageViewMode::CURSOR {..}) {
+                            return EventResult::Consumed(None);
+                        }
                         let image_dimensions = self.scaled_image.as_ref().unwrap().dimensions();
-
                         self.mode = ImageViewMode::CURSOR{
                             position: Vec2::new(image_dimensions.0 as usize / 2, image_dimensions.1 as usize / 2)
                         };
