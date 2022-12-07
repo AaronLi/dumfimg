@@ -14,6 +14,7 @@ use image::io::Reader as ImageReader;
 use crate::image_view::ImageView;
 
 #[derive(Parser, Debug)]
+#[command(version, author, about)]
 struct Args {
     #[arg(short, long)]
     input_image: String
