@@ -1,10 +1,10 @@
 mod image_view;
 
-use std::collections::{HashMap, HashSet};
-use std::env::args;
+
+
 use std::process::exit;
-use std::thread::sleep;
-use std::time::Duration;
+
+
 use clap::Parser;
 use cursive::{Cursive, CursiveExt};
 use cursive::views::{DebugView, ResizedView};
@@ -40,5 +40,5 @@ fn main() {
     };
     let mut base = Cursive::new();
     base.add_fullscreen_layer(ResizedView::with_full_screen(ImageView::new(image)));
-    base.run();
+    base.run_pancurses();
 }

@@ -32,7 +32,7 @@ impl View for ImageView {
             }
             Some(im) => {
                 if let Some(v) = self.rendered_view {
-                    if v == self.view {
+                    if v.eq(&self.view) {
                         return;
                     }
                 }
@@ -90,7 +90,15 @@ impl View for ImageView {
                 "CURSOR"
             }
         };
-        let status_text = format!("{:8} {:}%", mode_label, (100f32 / self.view_size().0).round() as usize);
+
+        let filter_label = match self.filter_mode {
+            FilterType::Nearest => "NEAREST",
+            FilterType::Triangle => "TRIANGLE",
+            FilterType::CatmullRom => "CATMULLROM",
+            FilterType::Gaussian => "GAUSSIAN",
+            FilterType::Lanczos3 => "LANCZOS3"
+        };
+        let status_text = format!("FILTER: {:11} MODE: {:8} ZOOM: {:}%", filter_label, mode_label, (100f32 / self.view_size().0).round() as usize);
         printer.print((printer.output_size.x - status_text.len(), printer.output_size.y-1), &status_text);
     }
 
@@ -221,6 +229,26 @@ impl View for ImageView {
                             }
                             _ => EventResult::Ignored
                         }
+                    },
+                    Key::F1 => {
+                        self.filter_mode = FilterType::Nearest;
+                        EventResult::Consumed(None)
+                    }
+                    Key::F2 => {
+                        self.filter_mode =FilterType::Triangle;
+                        EventResult::Consumed(None)
+                    }
+                    Key::F3 => {
+                        self.filter_mode =FilterType::CatmullRom;
+                        EventResult::Consumed(None)
+                    }
+                    Key::F4 => {
+                        self.filter_mode =FilterType::Lanczos3;
+                        EventResult::Consumed(None)
+                    }
+                    Key::F5 => {
+                        self.filter_mode =FilterType::Gaussian;
+                        EventResult::Consumed(None)
                     }
                     _ => EventResult::Ignored
                 }
